@@ -5,12 +5,12 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 
-public class Character {
+public class Actor {
     private int characterId = -1;
     private String characterName = "";
     private Map<String, Integer> wordCounts = new HashMap<String, Integer>();
 
-    public Character(String name) {
+    public Actor(String name) {
         this.characterName = name;
     }
 
@@ -38,10 +38,14 @@ public class Character {
         this.wordCounts = wordCounts;
     }
 
+    public boolean hasDialogs() {
+        return !this.wordCounts.isEmpty();
+    }
+
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof Character) {
-            if (((Character) obj).getCharacterName().compareToIgnoreCase(this.characterName) == 0)
+        if (obj instanceof Actor) {
+            if (((Actor) obj).getCharacterName().compareToIgnoreCase(this.characterName) == 0)
                 return true;
         }
         return false;
@@ -54,7 +58,7 @@ public class Character {
 
     @Override
     public String toString() {
-        String str = this.characterName + ";words(";
+        String str = String.format("%s ;(%d)words(", this.characterName, wordCounts.size());
 
         Iterator<Entry<String, Integer>> it = wordCounts.entrySet().iterator();
         while (it.hasNext()) {

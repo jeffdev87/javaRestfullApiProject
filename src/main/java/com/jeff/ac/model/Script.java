@@ -37,12 +37,23 @@ public class Script {
     public void setmSettingList(List<Setting> mSettingList) {
         this.mSettingList = mSettingList;
     }
+    public int getNumberOfSettings() {
+        return mSettingList.size();
+    }
+
+    public int getSettingArrayIndex(String settingName) {
+        for (int i = 0; i < mSettingList.size(); i++) {
+            if (mSettingList.get(i).getSettingName().compareToIgnoreCase(settingName) == 0)
+                return i;
+        }
+        return -1;
+    }
 
     public Set<String> getAllCharactersName () {
         Set<String> characterList = new HashSet<String>();
 
         for (int i = 0; i < mSettingList.size(); i++) {
-            for (Character ch : mSettingList.get(i).getCharacterList()) {
+            for (Actor ch : mSettingList.get(i).getCharacterList()) {
                 characterList.add(ch.getCharacterName());
             }
         }

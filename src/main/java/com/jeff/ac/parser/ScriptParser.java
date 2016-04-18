@@ -3,7 +3,7 @@ package com.jeff.ac.parser;
 import java.text.ParseException;
 
 import com.jeff.ac.appMessages.ApplicationMessages;
-import com.jeff.ac.model.Character;
+import com.jeff.ac.model.Actor;
 import com.jeff.ac.model.Script;
 import com.jeff.ac.model.Setting;
 
@@ -13,7 +13,7 @@ public class ScriptParser {
 
     enum DialogIdent {
 
-        CHARACTER_NAME(22), DESCRIPTION(15), DIALOG(10), NO_DIALOG_IDENT(-1);
+        CHARACTER_NAME(22), DESCRIPTION(15), DIALOG(10), IS_SETTING_HEADER (0), NO_DIALOG_IDENT(-1);
 
         private int ident;
 
@@ -26,7 +26,7 @@ public class ScriptParser {
         }
     };
 
-    private static final String REMOVE_SPEC_CHAR_REGEX = "[^\\dA-Za-z ]";
+    private static final String REMOVE_SPEC_CHAR_REGEX = "[^\\dA-Za-z\\- ']";
 
     public ScriptParser (String strScript) {
         this.setScript(strScript);
@@ -41,9 +41,10 @@ public class ScriptParser {
     }
 
     public Script parseScript (String scriptName) throws ParseException {
-        System.out.println("* begin parseScript...");
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "parseScript");
 
-        String[] lines = this.mScript.split("\\n");
+        this.mScript = this.mScript.replaceAll("\n", "#").replaceAll("\r", "");
+        String[] lines = this.mScript.split("#");
 
         int lineCounter = 0;
         Script script = new Script (scriptName);
@@ -51,17 +52,27 @@ public class ScriptParser {
         while (lineCounter < lines.length) {
 
             if (!lines[lineCounter].isEmpty() &&
-                    isSceneHeader(lines[lineCounter])) {
-                Setting setting = new Setting();
+                    isSettingHeader(lines[lineCounter])) {
 
-                setting.setSettingName(getSettingName (lines[lineCounter]));
+                String settingName = getSettingName (lines[lineCounter]);
+
+                int settingIdx = -1;
+                Setting setting = null;
+                if ((settingIdx = script.getSettingArrayIndex(settingName)) != -1) {
+                    setting = script.getmSettingList().get(settingIdx);
+                }
+                else {
+                    setting = new Setting();
+                    setting.setSettingName(settingName);
+                }
+
                 lineCounter++;
 
                 // Parse dialogs
                 DialogIdent di;
                 int currCharacterIdx = -1;
                 while (lineCounter < lines.length &&
-                        (((di = getDialogLineType(lines[lineCounter])) != DialogIdent.NO_DIALOG_IDENT) ||
+                        (((di = getDialogLineType(lines[lineCounter])) != DialogIdent.IS_SETTING_HEADER) ||
                                 (lines[lineCounter].isEmpty()))) {
 
                     if (lines[lineCounter].isEmpty()) {
@@ -69,14 +80,17 @@ public class ScriptParser {
                         continue;
                     }
 
-                    String currDialogText = lines[lineCounter].substring(di.getIdent(),
-                            lines[lineCounter].length());
+                    String currDialogText = "";
+
+                    if (di != DialogIdent.NO_DIALOG_IDENT)
+                        currDialogText = lines[lineCounter].substring(di.getIdent(),
+                                lines[lineCounter].length());
 
                     switch (di) {
                     case CHARACTER_NAME:
                         currCharacterIdx = setting.getCharacterArrayIndex(currDialogText);
                         if (currCharacterIdx == -1) {
-                            Character ch = new Character(currDialogText);
+                            Actor ch = new Actor(currDialogText);
                             if (setting.getCharacterList().add(ch))
                                 currCharacterIdx = setting.getCharacterList().size() - 1;
                             else
@@ -85,17 +99,25 @@ public class ScriptParser {
                         break;
                     case DESCRIPTION:
                         break;
+                    case NO_DIALOG_IDENT:
+                        break;
                     case DIALOG:
                         if (currCharacterIdx != -1) {
-                            Character ch = setting.getCharacterList().get(currCharacterIdx);
+                            Actor ch = setting.getCharacterList().get(currCharacterIdx);
                             String[] words = currDialogText.split(" ");
                             for (int i = 0; i < words.length; i++) {
                                 String key = words[i].replaceAll(REMOVE_SPEC_CHAR_REGEX, "").toLowerCase();
-                                Integer wordCount = 0;
-                                if ((wordCount = ch.getWordCounts().get(key)) != null)
-                                    ch.getWordCounts().put(key, wordCount + 1);
-                                else
-                                    ch.getWordCounts().put(key, 1);
+
+                                String[] separatedWord = key.split("-");
+
+                                for (int j = 0; j < separatedWord.length; j++) {
+                                    Integer wordCount = 0;
+                                    if ((wordCount = ch.getWordCounts().get(separatedWord[j])) != null)
+                                        ch.getWordCounts().put(separatedWord[j], wordCount + 1);
+                                    else
+                                        ch.getWordCounts().put(separatedWord[j], 1);
+                                }
+
                             }
                         }
                         else
@@ -106,17 +128,19 @@ public class ScriptParser {
                     }
                     lineCounter++;
                 }
-                script.getmSettingList().add(setting);
+                //Adding new setting
+                if (settingIdx == -1)
+                    script.getmSettingList().add(setting);
             }
             else
                 lineCounter++;
         }
-        System.out.println("* end parseScript...");
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "parseScript.end");
         return script;
     }
 
     private String getSettingName (String line) {
-        String[] settingHeaderNames = line.split("-");
+        String[] settingHeaderNames = line.replace(" - ", "#").split("#");
 
         String settingName = "";
 
@@ -132,7 +156,7 @@ public class ScriptParser {
         return settingName;
     }
 
-    private boolean isSceneHeader (String line) {
+    private boolean isSettingHeader (String line) {
         String[] sceneHeaderPattern = {"EXT.", "INT.", "INT./EXT."};
 
         boolean isHeader = false;
@@ -148,15 +172,20 @@ public class ScriptParser {
         for (DialogIdent d : DialogIdent.values()) {
             if (d.getIdent() > 0 && d.getIdent() < line.length()) {
                 boolean isInvalidIdent = false;
-                for (int i = 0; i < d.getIdent() && !isInvalidIdent; i++)
+                int i = 0;
+                for (i = 0; i < d.getIdent() && !isInvalidIdent; i++)
                     if (line.charAt(i) != ' ') {
                         isInvalidIdent = true;
                     }
 
-                if (!isInvalidIdent)
+                if ((!isInvalidIdent) && line.charAt(i) != ' ')
                     return d;
             }
         }
+
+        if (isSettingHeader(line))
+            return DialogIdent.IS_SETTING_HEADER;
+
         return DialogIdent.NO_DIALOG_IDENT;
     }
 

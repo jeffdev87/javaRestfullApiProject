@@ -1,6 +1,5 @@
 package com.jeff.ac.movieScript;
 
-import java.sql.SQLException;
 import java.text.ParseException;
 
 import javax.ws.rs.Consumes;
@@ -73,7 +72,7 @@ public class MovieScriptResource {
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.APPLICATION_JSON)
     public String doPostScript(@PathParam("name") String scriptName, String message) {
-        System.out.println("doPostScript");
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "doPostScript");
 
         ScriptParser parser = new ScriptParser(message);
 
@@ -81,24 +80,26 @@ public class MovieScriptResource {
 
         try {
             script = parser.parseScript(scriptName);
+
+            System.out.println(ApplicationMessages.getAppLogPrefix());
             System.out.println(script.toString());
+            System.out.println(ApplicationMessages.getAppLogPrefix() +
+                    String.format("%d settings parsed for script %s", script.getNumberOfSettings(), scriptName));
         }
         catch (ParseException ex) {
-            System.out.println("* error while parsing input script...");
+            System.out.println(ApplicationMessages.getAppLogPrefix() + ApplicationMessages.scriptParseError);
             throw new InternalServerErrorException(ex.getMessage());
         }
 
-        try {
-            ScriptSettingsDAO.inserScript(script);
-        } catch (SQLException ex) {
-            System.out.println("* error while persisting input script...");
-            throw new SQLErrorException(ex.getMessage());
-        }
+        if (!ScriptSettingsDAO.inserScriptObject(script))
+            throw new SQLErrorException(String.format(ApplicationMessages.scriptSqlErrorDuplicateScript, script.getScriptName()));
 
-        String str = String.format("{\"message\": \"%s\"}",
+        String jsonResp = String.format("{\"message\": \"%s\"}",
                 ApplicationMessages.scriptAddedSuccessfully);
 
-        return str;
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "doPostScript.end");
+
+        return jsonResp;
     }
 
     /**

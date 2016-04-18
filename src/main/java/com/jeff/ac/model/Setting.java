@@ -7,7 +7,7 @@ public class Setting {
 
     private int mSettingId = -1;
     private String mSettingName = "";
-    private List<Character> mCharacterList = new ArrayList<Character>();
+    private List<Actor> mCharacterList = new ArrayList<Actor>();
 
     public Setting () {
     }
@@ -28,11 +28,15 @@ public class Setting {
         this.mSettingName = settingName;
     }
 
-    public List<Character> getCharacterList() {
+    public List<Actor> getCharacterList() {
         return mCharacterList;
     }
 
-    public void setCharacterList(List<Character> characterList) {
+    public boolean hasCharacterList() {
+        return !this.mCharacterList.isEmpty();
+    }
+
+    public void setCharacterList(List<Actor> characterList) {
         this.mCharacterList = characterList;
     }
 
@@ -49,7 +53,7 @@ public class Setting {
         String setting = "id=" + mSettingId + ";name=" + mSettingName + ";characters=";
 
         int countCharac = 0;
-        for (Character chr : mCharacterList) {
+        for (Actor chr : mCharacterList) {
             setting = setting.concat(chr.toString());
 
             if (countCharac < mCharacterList.size() - 1)
