@@ -18,34 +18,16 @@ public class ScriptSettingsDAO {
     private static final SQLiteJDBCConnection dbConnection = SQLiteJDBCConnection.getDbCon();
 
     /**
-     * Retrieve the auto-incremented id given to a script
+     * Retrieve the auto-incremented id of a given model
      *
-     * @param scriptName Script name already inserted
+     * @param table Table name
+     * @param collumn Table's columns
+     * @param value Value of the field
+     *
      * @return id
      */
-    public static int getScriptAutoincrementedId (String scriptName) {
-        String sqlCmd = String.format("SELECT id FROM script WHERE script_name = '%s'", scriptName);
-        int resId = -1;
-
-        try {
-            ResultSet res = dbConnection.query(sqlCmd);
-            resId = res.getInt("id");
-
-        } catch (SQLException e) {
-            System.out.println(ApplicationMessages.getAppLogPrefix() + e.getMessage());
-        }
-
-        return resId;
-    }
-
-    /**
-     * Retrieve the auto-incremented id given to a character
-     *
-     * @param actorName Actor name already inserted
-     * @return id
-     */
-    public static int getCharacterAutoincrementedId (String actorName) {
-        String sqlCmd = String.format("SELECT id FROM character WHERE character_name = '%s'", actorName);
+    public static int getAutoincrementedId (String table, String column, String value) {
+        String sqlCmd = String.format("SELECT id FROM %s WHERE %s = \"%s\"", table, column, value);
         int resId = -1;
 
         try {
@@ -157,25 +139,38 @@ public class ScriptSettingsDAO {
 
         int insertCount = 0;
 
-        int script_id = getScriptAutoincrementedId(scriptName);
+        int scriptId = getAutoincrementedId("script", "script_name", scriptName);
 
         for (int i = 0; i < settingList.size(); i++) {
 
             String settingName = settingList.get(i).getSettingName();
 
+            try {
+                String sqlCmd = String.format("INSERT INTO setting (setting_name) VALUES (\"%s\")", settingName);
+
+                insertCount+=dbConnection.insert(sqlCmd);
+
+                System.out.println(String.format(ApplicationMessages.getAppLogPrefix() +
+                        "Inserted setting %s.", settingName));
+
+            } catch (SQLException ex) {
+                System.out.println(ApplicationMessages.getAppLogPrefix() + ex.getMessage());
+            }
+
             if (!settingList.get(i).hasCharacterList())
                 continue;
+
+            int settingId = getAutoincrementedId("setting", "setting_name", settingName);
 
             // Retrieve all characters with dialogs from this specific setting
             for (int j = 0; j < settingList.get(i).getCharacterList().size(); j++) {
 
                 String characterName = settingList.get(i).getCharacterList().get(j).getCharacterName();
-
-                int characterId = getCharacterAutoincrementedId(characterName);
+                int characterId = getAutoincrementedId("character", "character_name", characterName);
 
                 try {
-                    String sqlCmd = String.format("INSERT INTO setting (script_id, setting_name, character_id) VALUES (%d, \"%s\", %d)",
-                            script_id, settingName, characterId);
+                    String sqlCmd = String.format("INSERT INTO settingCharacter (script_id, setting_id, character_id) VALUES (%d, %d, %d)",
+                            scriptId, settingId, characterId);
 
                     insertCount+=dbConnection.insert(sqlCmd);
 
@@ -189,7 +184,7 @@ public class ScriptSettingsDAO {
                 if (!settingList.get(i).getCharacterList().get(j).hasDialogs())
                     continue;
 
-                int nWords = insertCharacterScriptWordCount (script_id, characterId, settingName, settingList.get(i).getCharacterList().get(j));
+                int nWords = insertCharacterScriptWordCount (scriptId, characterId, settingName, settingList.get(i).getCharacterList().get(j));
 
                 System.out.println(String.format(ApplicationMessages.getAppLogPrefix() +
                         "%d words inserted for character %s from setting %s.", nWords, characterName, settingName));
@@ -219,5 +214,174 @@ public class ScriptSettingsDAO {
         }
 
         return false;
+    }
+
+    public static String getSettings (int scriptId, int settingId) {
+
+        String whereClause = String.format("WHERE script_id = %d ", scriptId);
+        if (settingId != -1)
+            whereClause+=String.format(" AND setting_id = \"%s\" ", settingId);
+
+        String sqlCmd = String.format(
+                "SELECT script_id, setting_id, setting_name, character_id, character_name "
+                        + "FROM settingCharacter sc JOIN character c ON c.id = sc.character_id "
+                        + "JOIN setting s ON s.id = sc.setting_id "
+                        + "%s "
+                        + "ORDER BY script_id, setting_name",
+                        whereClause);
+
+        String jsonRes = "[]";
+
+        try {
+            ResultSet res = dbConnection.query(sqlCmd);
+            boolean hasResult = false;
+
+            if (res.isBeforeFirst()) {
+                jsonRes = "[";
+                hasResult = true;
+            }
+
+            int currSettingId = -1;
+            String settingJsonObj = "";
+
+            while (res.next()) {
+                if (res.getInt("setting_id") != currSettingId) {
+                    if (!settingJsonObj.isEmpty())
+                        jsonRes = jsonRes.concat(settingJsonObj + "]},");
+
+                    settingJsonObj = "";
+
+                    currSettingId = res.getInt("setting_id");
+                    String currSetting = res.getString("setting_name");
+
+                    settingJsonObj+= String.format("{\"id\":%d, \"name\":\"%s\",", currSettingId, currSetting);
+                    settingJsonObj+= "\"characters\":[";
+                }
+                else {
+                    settingJsonObj+=",";
+                }
+
+                String characterJsonObj = String.format("{\"id\":%d, \"name\":\"%s\",",
+                        res.getInt("character_id"), res.getString("character_name"));
+
+                characterJsonObj+=getTopWordCount(scriptId, res.getInt("character_id"), 10);
+                characterJsonObj+="}";
+
+                settingJsonObj+=characterJsonObj;
+            }
+            if (hasResult)
+                jsonRes+=settingJsonObj+"]}]";
+
+        } catch (SQLException e) {
+            System.out.println(ApplicationMessages.getAppLogPrefix() + e.getMessage());
+        }
+
+        return jsonRes;
+    }
+
+    public static String getCharacters (int scriptId, int characterId) {
+
+        String whereClause = String.format("WHERE script_id = %d ", scriptId);
+        if (characterId != -1)
+            whereClause+=String.format(" AND character_id = \"%s\" ", characterId);
+
+        String sqlCmd = String.format(
+                "SELECT DISTINCT script_id, character_id, character_name "
+                        + "FROM settingCharacter sc JOIN character c ON c.id = sc.character_id "
+                        + "%s "
+                        + "ORDER BY character_name",
+                        whereClause);
+
+        String jsonRes = "[]";
+
+        try {
+            ResultSet res = dbConnection.query(sqlCmd);
+
+            boolean hasResult = res.isBeforeFirst();
+
+            if (hasResult) {
+                jsonRes = "[";
+            }
+
+            String settingJsonObj = "";
+            int i = 0;
+            while (res.next()) {
+                String characterJsonObj = String.format("{\"id\":%d, \"name\":\"%s\",",
+                        res.getInt("character_id"), res.getString("character_name"));
+
+                characterJsonObj+=getTopWordCount(scriptId, res.getInt("character_id"), 10);
+                characterJsonObj+="},";
+
+                jsonRes+=characterJsonObj;
+
+                i++;
+            }
+            if (i > 0)
+                jsonRes = jsonRes.substring(0, jsonRes.length() - 1);
+
+            if (hasResult)
+                jsonRes+=settingJsonObj+"]";
+
+        } catch (SQLException e) {
+            System.out.println(ApplicationMessages.getAppLogPrefix() + e.getMessage());
+        }
+
+        return jsonRes;
+    }
+
+    /**
+     * Select the top words in dialogs for a given character in
+     * a specific script.
+     *
+     * @param scriptId The id of the script
+     * @param actorId The id of the character
+     * @param limit The limit of results.
+     *
+     * @return String with an array of word/count values.
+     */
+    public static String getTopWordCount (int scriptId, int actorId, int limit) {
+
+        String sqlCmd = String.format(
+                "SELECT script_id, word, sum(counter) as sumCounter "
+                        + "FROM characterScriptWordCount "
+                        + "where script_id = %d AND character_id = %d "
+                        + "GROUP BY script_id, character_id, word "
+                        + "ORDER BY sum(counter) DESC "
+                        + "LIMIT %d", scriptId, actorId, limit);
+
+        String jsonWordCounts = "\"wordCounts\":[]";
+
+        try {
+            ResultSet res = dbConnection.query(sqlCmd);
+
+            if (res.isBeforeFirst())
+                jsonWordCounts = "\"wordCounts\":";
+
+            String wordc = "";
+            int i = 0;
+            while (res.next()) {
+                if (res.isFirst())
+                    jsonWordCounts+="[";
+
+                wordc = String.format("{\"word\":\"%s\", \"count\":%d}",
+                        res.getString("word"),
+                        res.getInt("sumCounter"));
+
+                jsonWordCounts+= wordc + ",";
+
+                i++;
+            }
+
+            // Remove last comma
+            if (i > 0)
+                jsonWordCounts = jsonWordCounts.substring(0, jsonWordCounts.length() - 1);
+
+            jsonWordCounts+="]";
+
+        } catch (SQLException e) {
+            System.out.println(ApplicationMessages.getAppLogPrefix() + e.getMessage());
+        }
+
+        return jsonWordCounts;
     }
 }

@@ -55,7 +55,7 @@ public class MovieScriptResource {
     /**
      * Method handling HTTP POST requests.
      *
-     * Receives the movie script in a predefined format
+     * Receives the movie script in a predefined text format
      *
      * If a movie script was already received before, it should respond
      * with an error.
@@ -72,28 +72,40 @@ public class MovieScriptResource {
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.APPLICATION_JSON)
     public String doPostScript(@PathParam("name") String scriptName, String message) {
-        System.out.println(ApplicationMessages.getAppLogPrefix() + "doPostScript");
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "doPostScript.start");
 
         ScriptParser parser = new ScriptParser(message);
 
         Script script = null;
 
+        /*
+         * Parsing the input data
+         */
         try {
             script = parser.parseScript(scriptName);
 
             System.out.println(ApplicationMessages.getAppLogPrefix());
             System.out.println(script.toString());
             System.out.println(ApplicationMessages.getAppLogPrefix() +
-                    String.format("%d settings parsed for script %s", script.getNumberOfSettings(), scriptName));
+                    String.format("%d settings parsed for script %s",
+                            script.getNumberOfSettings(), scriptName));
         }
         catch (ParseException ex) {
-            System.out.println(ApplicationMessages.getAppLogPrefix() + ApplicationMessages.scriptParseError);
+            System.out.println(ApplicationMessages.getAppLogPrefix() +
+                    ApplicationMessages.scriptParseError);
             throw new InternalServerErrorException(ex.getMessage());
         }
 
+        /*
+         * Storing script data into database
+         */
         if (!ScriptSettingsDAO.inserScriptObject(script))
-            throw new SQLErrorException(String.format(ApplicationMessages.scriptSqlErrorDuplicateScript, script.getScriptName()));
+            throw new SQLErrorException(String.format(
+                    ApplicationMessages.scriptSqlErrorDuplicateScript, script.getScriptName()));
 
+        /*
+         * Preparing response
+         */
         String jsonResp = String.format("{\"message\": \"%s\"}",
                 ApplicationMessages.scriptAddedSuccessfully);
 
@@ -105,7 +117,7 @@ public class MovieScriptResource {
     /**
      * Method handling HTTP GET requests.
      *
-     * Returns information about all the movie settings.
+     * Returns information about all settings for a given script.
      *
      * The response includes the name of the settings, the list of characters
      * that appeared in each setting, and the ten top dialogue word counts for
@@ -116,16 +128,20 @@ public class MovieScriptResource {
      * 2XX: An array of settings
      * 5XX: Unexpected error
      *
+     * @param scriptId Script identifier
      * @return String that will be returned as a application/json response.
      */
     @GET
-    @Path("/settings")
-    //@Produces(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.TEXT_PLAIN)
-    public String doGetAllSettings() {
-        System.out.println("doGetAllSettings");
+    @Path("/settings/{scriptId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public String doGetAllSettings(@PathParam("scriptId") int scriptId) {
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "doGetAllSettings.start");
 
-        return "doGetAllSettings";
+        String res = ScriptSettingsDAO.getSettings(scriptId, -1);
+
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "doGetAllSettings.end");
+
+        return res;
     }
 
     /**
@@ -143,17 +159,21 @@ public class MovieScriptResource {
      * 4XX: Not found
      * 5XX: Unexpected error
      *
-     * @param int Movie setting id, required, integer
+     * @param int scriptId Script identifier
+     * @param int settingId Setting identifier
      * @return String that will be returned as a application/json response.
      */
     @GET
-    @Path("/settings/{id}")
-    //@Produces(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.TEXT_PLAIN)
-    public String doGetSetting(@PathParam("id") long id) {
-        System.out.println("doGetSetting");
+    @Path("/settings/{scriptId}/{settingId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public String doGetSetting(@PathParam("scriptId") int scriptId, @PathParam("settingId") int settingId) {
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "doGetSetting.start");
 
-        return "doGetSetting: Input: " + id;
+        String res = ScriptSettingsDAO.getSettings(scriptId, settingId);
+
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "doGetSetting.end");
+
+        return res;
     }
 
     /**
@@ -168,16 +188,20 @@ public class MovieScriptResource {
      * 2XX: An array of movie characters
      * 5XX: Unexpected error
      *
+     * @param int scriptId Script identifier
      * @return String that will be returned as a application/json response.
      */
     @GET
-    @Path("/characters")
-    //@Produces(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.TEXT_PLAIN)
-    public String doGetAllCharacters() {
-        System.out.println("doGetAllCharacters");
+    @Path("/characters/{scriptId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public String doGetAllCharacters(@PathParam("scriptId") int scriptId) {
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "doGetAllCharacters.start");
 
-        return "doGetAllCharacters";
+        String res = ScriptSettingsDAO.getCharacters(scriptId, -1);
+
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "doGetAllCharacters.end");
+
+        return res;
     }
 
     /**
@@ -194,16 +218,21 @@ public class MovieScriptResource {
      * 4XX: Not found
      * 5XX: Unexpected error
      *
-     * @param int Movie character id, required, integer
+     * @param int scriptId Script identifier
+     * @param int characterId Character identifier
+     *
      * @return String that will be returned as a application/json response.
      */
     @GET
-    @Path("/characters/{id}")
-    //@Produces(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.TEXT_PLAIN)
-    public String doGetCharacter(@PathParam("id") long id) {
-        System.out.println("doGetCharacter");
+    @Path("/characters/{scriptId}/{characterId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public String doGetCharacter(@PathParam("scriptId") int scriptId, @PathParam("characterId") int characterId) {
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "doGetCharacter.start");
 
-        return "doGetCharacter: Input:" + id;
+        String res = ScriptSettingsDAO.getCharacters(scriptId, characterId);
+
+        System.out.println(ApplicationMessages.getAppLogPrefix() + "doGetCharacter.end");
+
+        return res;
     }
 }
