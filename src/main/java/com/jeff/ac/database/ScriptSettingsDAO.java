@@ -232,6 +232,10 @@ public class ScriptSettingsDAO {
 
         String jsonRes = "[]";
 
+        if (settingId != -1)
+            jsonRes = String.format("{ \"message\": \"Movie setting with id %d not found\"}",
+                    settingId);
+
         try {
             ResultSet res = dbConnection.query(sqlCmd);
             boolean hasResult = false;
@@ -241,7 +245,7 @@ public class ScriptSettingsDAO {
                 hasResult = true;
             }
 
-            int currSettingId = -1;
+            int currSettingId = -1, i = 0;
             String settingJsonObj = "";
 
             while (res.next()) {
@@ -256,6 +260,7 @@ public class ScriptSettingsDAO {
 
                     settingJsonObj+= String.format("{\"id\":%d, \"name\":\"%s\",", currSettingId, currSetting);
                     settingJsonObj+= "\"characters\":[";
+                    ++i;
                 }
                 else {
                     settingJsonObj+=",";
@@ -271,6 +276,9 @@ public class ScriptSettingsDAO {
             }
             if (hasResult)
                 jsonRes+=settingJsonObj+"]}]";
+
+            System.out.println(ApplicationMessages.getAppLogPrefix() +
+                    String.format(ApplicationMessages.scriptSqlResultSetSizeSettings, i));
 
         } catch (SQLException e) {
             System.out.println(ApplicationMessages.getAppLogPrefix() + e.getMessage());
@@ -293,6 +301,10 @@ public class ScriptSettingsDAO {
                         whereClause);
 
         String jsonRes = "[]";
+
+        if (characterId != -1)
+            jsonRes = String.format("{ \"message\": \"Movie character with id %d not found\"}",
+                    characterId);
 
         try {
             ResultSet res = dbConnection.query(sqlCmd);
@@ -321,6 +333,9 @@ public class ScriptSettingsDAO {
 
             if (hasResult)
                 jsonRes+=settingJsonObj+"]";
+
+            System.out.println(ApplicationMessages.getAppLogPrefix() +
+                    String.format(ApplicationMessages.scriptSqlResultSetSizeCharacters, i));
 
         } catch (SQLException e) {
             System.out.println(ApplicationMessages.getAppLogPrefix() + e.getMessage());

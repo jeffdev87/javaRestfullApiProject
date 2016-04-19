@@ -50,8 +50,6 @@ enum ReturnCodes {
 @Path("/moviescript")
 public class MovieScriptResource {
 
-    public String dummyScript = "nada";
-
     /**
      * Method handling HTTP POST requests.
      *
@@ -100,8 +98,9 @@ public class MovieScriptResource {
          * Storing script data into database
          */
         if (!ScriptSettingsDAO.inserScriptObject(script))
-            throw new SQLErrorException(String.format(
-                    ApplicationMessages.scriptSqlErrorDuplicateScript, script.getScriptName()));
+            throw new SQLErrorException(String.format("{\"message\": \"" +
+                    ApplicationMessages.scriptSqlErrorDuplicateScript + "\"}"
+                    , script.getScriptName()));
 
         /*
          * Preparing response

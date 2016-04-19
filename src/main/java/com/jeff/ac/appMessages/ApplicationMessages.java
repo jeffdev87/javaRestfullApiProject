@@ -10,7 +10,8 @@ public class ApplicationMessages {
     public static String scriptParseError = "Parse error on line %d";
     public static String scriptSqlErrorDuplicateScript = "Movie script %s already received";
     public static String scriptSqlErrorDuplicateCharacter = "Character %s already received";
-    public static String scriptSqlTransactionRolledBack = "Transaction rolled back";
+    public static String scriptSqlResultSetSizeSettings = "%d settings processed";
+    public static String scriptSqlResultSetSizeCharacters = "%d characters processed";
 
     public static String getAppLogPrefix () {
         DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
