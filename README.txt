@@ -6,6 +6,14 @@
 
 3) Builder/Runner tool: Maven
 
+4) Available URLs summary:
+* Localhost main URL: localhost:8080/myapp 
+* POST moviescript/script/{name}
+* GET moviescript/settings/{scriptId}
+* GET moviescript/settings/{scriptId}/{settingId}
+* GET moviescript/characters/{scriptId}
+* GET moviescript/characters/{scriptId}/{characterId}
+
 *** Instructions to execute:
 
 1) Open the terminal
@@ -104,4 +112,3 @@ Sample:
 	
 Result:
 	JSON string with the requested data or an empty array [].
-
